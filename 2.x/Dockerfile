@@ -3,7 +3,8 @@
 
 
 # This dockerfile generates an AmazonLinux-based image containing an OpenSearch installation.
-# It assumes that the working directory contains these files: an OpenSearch tarball (opensearch.tgz), log4j2.properties, opensearch.yml, opensearch-docker-entrypoint.sh, opensearch-onetime-setup.sh.
+# It assumes that the working directory contains these files: an OpenSearch tarball (opensearch.tgz), log4j2.properties, opensearch.yml, opensearch-docker-entrypoint.sh, opensearch-onetime-s
+etup.sh.
 # Build arguments:
 #   VERSION: Required. Used to label the image.
 #   UID: Optional. Specify the opensearch userid. Defaults to 1000.
@@ -12,7 +13,7 @@
 
 
 ########################### Stage 0 ########################
-FROM amazonlinux:2 AS linux_stage_0
+FROM debian:stable-slim AS linux_stage_0
 
 ARG UID=1000
 ARG GID=1000
@@ -25,11 +26,11 @@ ARG OS_VERSION=2.5.0
 # Update packages
 # Install the tools we need: tar and gzip to unpack the OpenSearch tarball, and shadow-utils to give us `groupadd` and `useradd`.
 # Install which to allow running of securityadmin.sh
-RUN yum update -y && yum install -y tar gzip shadow-utils which && yum clean all
+RUN apt update -y && apt install -y tar gzip passwd which curl gpg && apt clean all
 
 # Create an opensearch user, group, and directory
-RUN groupadd -g $GID opensearch && \
-    adduser -u $UID -g $GID -d $OPENSEARCH_HOME opensearch && \
+RUN groupadd --gid $GID opensearch && \
+    adduser --uid $UID --gid $GID --home $OPENSEARCH_HOME opensearch && \
     mkdir $TEMP_DIR
 
 RUN mkdir /usr/share/elasticsearch
@@ -58,18 +59,18 @@ COPY bin/* $OPENSEARCH_HOME/
 RUN if [[ -d $PERFORMANCE_ANALYZER_PLUGIN_CONFIG_DIR ]] ; then mv $OPENSEARCH_PATH_CONF/performance-analyzer.properties $PERFORMANCE_ANALYZER_PLUGIN_CONFIG_DIR/ ; fi
 ########################### Stage 1 ########################
 # Copy working directory to the actual release docker images
-FROM amazonlinux:2
+FROM debian:stable-slim
 
 ARG UID=1000
 ARG GID=1000
 ARG OPENSEARCH_HOME=/usr/share/opensearch
 ARG OS_VERSION=2.5.0
 
-RUN yum update -y && yum install -y tar gzip shadow-utils which && yum clean all
+RUN apt update -y && apt install -y tar gzip passwd which curl gpg && apt clean all
 
 # Create an opensearch user, group
-RUN groupadd -g $GID opensearch && \
-    adduser -u $UID -g $GID -d $OPENSEARCH_HOME opensearch
+RUN groupadd --gid $GID opensearch && \
+    adduser --uid $UID --gid $GID --home $OPENSEARCH_HOME opensearch
 
 # Copy from Stage0
 COPY --from=linux_stage_0 --chown=$UID:$GID $OPENSEARCH_HOME $OPENSEARCH_HOME
@@ -109,3 +110,4 @@ LABEL org.label-schema.schema-version="1.0" \
 # CMD to run
  ENTRYPOINT ["./opensearch-docker-entrypoint.sh"]
  CMD ["opensearch"]
+
